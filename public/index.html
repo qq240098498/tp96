@@ -137,7 +137,14 @@
         </div>
       </div>
       <p class="scan-meta" id="scan-meta">还没有扫过，点右上角扫一遍</p>
+      <div class="threshold-bar" id="threshold-bar">
+        <span class="threshold-title">允许条数上限</span>
+        <span class="threshold-fields" id="threshold-fields"></span>
+        <button type="button" id="threshold-save" class="ghost">保存上限</button>
+        <span class="threshold-hint">某一级留空表示这一级不参与判断，不会当成 0；只能填非负整数</span>
+      </div>
       <p class="scan-warning hidden" id="scan-warning"></p>
+      <div class="verdict hidden" id="scan-verdict"></div>
       <div class="summary hidden" id="scan-summary"></div>
       <div class="table-wrap">
         <table class="grid">

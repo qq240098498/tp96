@@ -9,6 +9,8 @@ const state = {
   ruleLevels: [],
   ruleStatuses: [],
   ruleFileTypes: [],
+  thresholdLevels: [],
+  thresholds: {},
   editingRuleId: '',
   editingFileId: '',
   lastScan: null,
@@ -145,8 +147,7 @@ async function loadFiles() {
   renderScanFileOptions();
 }
 
-function renderRuleFilters() {
-  const levelSelect = el('rule-filter-level');
+function renderRuleFilters() {  const levelSelect = el('rule-filter-level');
   const levelCurrent = levelSelect.value;
   levelSelect.innerHTML = '<option value="">全部级别</option>'
     + state.levels.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
@@ -208,6 +209,39 @@ function renderScanFileOptions() {
   select.innerHTML = '<option value="">全部文件</option>'
     + state.files.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.path)}</option>`).join('');
   if (state.files.some((item) => item.id === current)) select.value = current;
+}
+
+async function loadThresholds() {
+  const payload = await request('/api/thresholds');
+  state.thresholdLevels = payload.levels || [];
+  state.thresholds = payload.thresholds || {};
+  renderThresholdFields();
+}
+
+function renderThresholdFields() {
+  const box = el('threshold-fields');
+  box.innerHTML = state.thresholdLevels.map((level) => {
+    const value = state.thresholds[level];
+    const text = Number.isInteger(value) ? String(value) : '';
+    return `<label class="threshold-item" data-field="threshold-${escapeHtml(level)}">${escapeHtml(level)}
+        <input class="threshold-input" data-threshold-level="${escapeHtml(level)}"
+          value="${escapeHtml(text)}" inputmode="numeric" placeholder="不限" maxlength="6"></label>`;
+  }).join('');
+}
+
+// 点保存与点扫描都走这里：先把上限按服务端口径校验一遍存好，再继续后面的动作
+async function saveThresholds() {
+  clearFieldMarks();
+  const thresholds = {};
+  document.querySelectorAll('.threshold-input').forEach((input) => {
+    thresholds[input.dataset.thresholdLevel] = input.value;
+  });
+  const payload = await request('/api/thresholds', {
+    method: 'PUT',
+    body: JSON.stringify({ thresholds }),
+  });
+  state.thresholds = payload.thresholds || {};
+  return payload;
 }
 
 function renderRules() {
@@ -350,7 +384,7 @@ async function submitFile(event) {
   }
 }
 
-// 扫一遍，把概要与命中清单都画出来
+// 扫一遍：先把上限存好（非法填法会被服务端挡下并标到具体级别），再把概要与命中清单都画出来
 async function runScan() {
   clearNotice();
   const body = {
@@ -359,12 +393,42 @@ async function runScan() {
     level: el('scan-level').value,
   };
   try {
+    await saveThresholds();
     const result = await request('/api/scan', { method: 'POST', body: JSON.stringify(body) });
     state.lastScan = result;
     renderScan(result);
   } catch (err) {
     notify(err.message, 'error');
+    markField(err.field);
   }
+}
+
+// 本轮结论：逐级别写清命中条数、上限、超了多少或还差多少；没配上限的级别写明不参与判断
+function renderVerdict(verdict) {
+  const box = el('scan-verdict');
+  if (!verdict) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const passed = verdict.result === 'pass';
+  const head = passed
+    ? '<strong>这一轮结论：通过</strong>'
+    : `<strong>这一轮结论：不通过</strong>，超了的级别：${verdict.failures.map(escapeHtml).join('、')}`;
+  const lines = verdict.levels.map((item) => {
+    if (!item.checked) {
+      return `<div class="verdict-line verdict-skip"><span class="tag ${levelClass(item.level)}">${escapeHtml(item.level)}</span>
+        命中 ${item.count} 条；这一级没有配允许条数上限，<strong>不参与判断</strong></div>`;
+    }
+    if (item.pass) {
+      return `<div class="verdict-line verdict-ok"><span class="tag ${levelClass(item.level)}">${escapeHtml(item.level)}</span>
+        命中 ${item.count} 条，上限 ${item.limit} 条，${item.remaining === 0 ? '已经到上限，再多 1 条就不通过' : `还差 ${item.remaining} 条才到上限`}</div>`;
+    }
+    return `<div class="verdict-line verdict-over"><span class="tag ${levelClass(item.level)}">${escapeHtml(item.level)}</span>
+      命中 ${item.count} 条，上限 ${item.limit} 条，<strong>超了 ${item.over} 条</strong>，至少清掉 ${item.over} 条才不超</div>`;
+  }).join('');
+  box.innerHTML = `<div class="verdict-head ${passed ? 'is-pass' : 'is-fail'}">${head}</div>${lines}`;
+  box.className = `verdict ${passed ? 'pass' : 'fail'}`;
 }
 
 function renderScan(result) {
@@ -378,6 +442,8 @@ function renderScan(result) {
     warningBox.classList.add('hidden');
     warningBox.textContent = '';
   }
+
+  renderVerdict(result.verdict);
 
   const summaryBox = el('scan-summary');
   const levelText = Object.keys(result.summary.byLevel)
@@ -395,8 +461,9 @@ function renderScan(result) {
     <div class="summary-line">按文件：${escapeHtml(fileText)}</div>`;
   summaryBox.classList.remove('hidden');
 
+  const failedLevels = new Set((result.verdict && result.verdict.failures) || []);
   const body = el('hit-body');
-  body.innerHTML = result.hits.map((hit) => `<tr>
+  body.innerHTML = result.hits.map((hit) => `<tr${failedLevels.has(hit.level) ? ' class="hit-over"' : ''}>
       <td class="mono">${escapeHtml(hit.code)}</td>
       <td><span class="tag ${levelClass(hit.level)}">${escapeHtml(hit.level)}</span></td>
       <td>${escapeHtml(hit.ruleName)}</td>
@@ -505,6 +572,16 @@ el('file-filter-reset').addEventListener('click', () => {
   loadFiles().catch((err) => notify(err.message, 'error'));
 });
 el('scan-run').addEventListener('click', runScan);
+el('threshold-save').addEventListener('click', async () => {
+  clearNotice();
+  try {
+    await saveThresholds();
+    notify('允许条数上限已保存', 'ok');
+  } catch (err) {
+    notify(err.message, 'error');
+    markField(err.field);
+  }
+});
 el('rule-filter-level').addEventListener('change', () => {
   loadRules().catch((err) => notify(err.message, 'error'));
 });
@@ -515,9 +592,10 @@ el('operator').addEventListener('change', () => {
   window.localStorage.setItem(OPERATOR_KEY, currentOperator());
 });
 
-// 页面打开时先把规则与文件都拉一遍，扫描的范围下拉依赖这两份清单
+// 页面打开时先把规则、文件与各级别上限都拉一遍，扫描的范围下拉依赖这两份清单
 restoreOperator();
 loadHealth();
+loadThresholds().catch((err) => notify(err.message, 'error'));
 loadRules()
   .then(loadFiles)
   .catch((err) => notify(err.message, 'error'));

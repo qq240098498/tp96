@@ -315,6 +315,99 @@ td.actions {
   margin-top: 4px;
 }
 
+.threshold-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f9fafc;
+}
+
+.threshold-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding-bottom: 7px;
+}
+
+.threshold-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.threshold-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.threshold-item input {
+  width: 76px;
+}
+
+.threshold-hint {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+}
+
+.verdict {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #f9fafc;
+  font-size: 12.5px;
+}
+
+.verdict.pass {
+  border-color: #b7ddc9;
+  background: #eefaf3;
+}
+
+.verdict.fail {
+  border-color: #f0c2c2;
+  background: #fdeeee;
+}
+
+.verdict-head {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.verdict.pass .verdict-head {
+  color: var(--ok);
+}
+
+.verdict.fail .verdict-head {
+  color: var(--danger);
+}
+
+.verdict-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.verdict-over {
+  color: var(--danger);
+}
+
+tr.hit-over td {
+  background: #fdf3f3;
+}
+
+tr.hit-over td:first-child {
+  border-left: 3px solid var(--danger);
+}
+
 .content-preview {
   margin: 12px 0 0;
   padding: 12px;

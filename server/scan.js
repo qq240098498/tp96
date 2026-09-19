@@ -11,6 +11,35 @@ function levelOrder(level) {
   return index === -1 ? LEVELS.length : index;
 }
 
+// 这一轮放不放行：给配了上限的级别逐个对一遍命中条数。
+// 没配上限的级别记成不参与判断，不能当成上限 0；
+// 结论里每个级别的条数都直接来自同一份命中清单，保证按数字在清单里数得出来
+function buildVerdict(byLevel, thresholds) {
+  const configured = thresholds && typeof thresholds === 'object' ? thresholds : {};
+  const levels = LEVELS.map((level) => {
+    const count = byLevel[level] || 0;
+    const limit = configured[level];
+    const checked = Number.isInteger(limit);
+    const over = checked ? Math.max(0, count - limit) : 0;
+    return {
+      level,
+      count,
+      limit: checked ? limit : null,
+      checked,
+      pass: checked ? count <= limit : true,
+      over,
+      // 还差多少条就到上限：没超时是上限以内还能再容多少条，超了就是负数，提示要清掉多少条
+      remaining: checked ? limit - count : null,
+    };
+  });
+  const failures = levels.filter((item) => item.checked && !item.pass);
+  return {
+    result: failures.length === 0 ? 'pass' : 'fail',
+    levels,
+    failures: failures.map((item) => item.level),
+  };
+}
+
 // 扫一遍：启用的规则逐条去比对范围内的文件，命中记到具体行上
 function scan(options) {
   const input = options && typeof options === 'object' ? options : {};
@@ -79,6 +108,8 @@ function scan(options) {
   LEVELS.forEach((item) => { byLevel[item] = 0; });
   hits.forEach((hit) => { byLevel[hit.level] += 1; });
 
+  const verdict = buildVerdict(byLevel, data.thresholds);
+
   const byRuleMap = new Map();
   hits.forEach((hit) => {
     const key = hit.code;
@@ -104,6 +135,7 @@ function scan(options) {
     rulesTotal: data.rules.length,
     warning,
     hits,
+    verdict,
     summary: {
       total: hits.length,
       byLevel,

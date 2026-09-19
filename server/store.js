@@ -14,6 +14,13 @@ const MAX_PATTERN_LENGTH = 60;
 const MAX_NOTE_LENGTH = 200;
 const MAX_PATH_LENGTH = 120;
 const MAX_CONTENT_LENGTH = 4000;
+// 每级允许条数上限最大允许填到 9999，避免误填一个离谱的大数字
+const MAX_THRESHOLD_VALUE = 9999;
+
+// 初始时三个级别都不配上阈值，表示这一轮不卡条数
+function seedThresholds() {
+  return { 提示: null, 警告: null, 错误: null };
+}
 
 // 检查规则的初始数据。十二条规则里有两条是停用的，
 // 有一条启用的规则在现有文件里一条命中都没有，用来观察从未命中的规则
@@ -335,6 +342,20 @@ function normalizeFile(item, fallbackIndex) {
   };
 }
 
+// 把各级别允许条数上限整理成固定结构：没配的级别一律记成 null，表示不参与判断
+function normalizeThresholds(source) {
+  const result = {};
+  LEVELS.forEach((level) => {
+    const value = source && typeof source === 'object' ? source[level] : null;
+    if (Number.isInteger(value) && value >= 0 && value <= MAX_THRESHOLD_VALUE) {
+      result[level] = value;
+    } else {
+      result[level] = null;
+    }
+  });
+  return result;
+}
+
 // 整份数据保证规则与文件结构一致，缺编号、缺名称、缺路径的条目一律丢掉
 function normalize(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
@@ -368,7 +389,9 @@ function normalize(raw) {
     files.push(file);
   });
 
-  return { rules, files };
+  const thresholds = normalizeThresholds(source.thresholds);
+
+  return { rules, files, thresholds };
 }
 
 // 读取数据文件：文件缺失或内容损坏时回落到初始数据并立刻补写
@@ -377,7 +400,7 @@ function load() {
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
     return normalize(JSON.parse(raw));
   } catch (err) {
-    const data = { rules: seedRules(), files: seedFiles() };
+    const data = { rules: seedRules(), files: seedFiles(), thresholds: seedThresholds() };
     save(data);
     return data;
   }
@@ -396,9 +419,11 @@ module.exports = {
   save,
   seedRules,
   seedFiles,
+  seedThresholds,
   normalize,
   normalizeRule,
   normalizeFile,
+  normalizeThresholds,
   LEVELS,
   STATUSES,
   FILE_TYPES,
@@ -408,5 +433,6 @@ module.exports = {
   MAX_NOTE_LENGTH,
   MAX_PATH_LENGTH,
   MAX_CONTENT_LENGTH,
+  MAX_THRESHOLD_VALUE,
   DATA_FILE,
 };

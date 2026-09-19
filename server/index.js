@@ -93,6 +93,19 @@ app.delete('/api/files/:id', (req, res) => {
   }
 });
 
+// 各级别允许条数上限：读出来画到扫描区，保存时服务端逐个级别校验
+app.get('/api/thresholds', (_req, res) => {
+  res.json(api.getThresholds());
+});
+
+app.put('/api/thresholds', (req, res) => {
+  try {
+    res.json(api.updateThresholds(req.body));
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 // 扫一遍：可以只扫某一条规则、某一个文件，也可以只留某个级别
 app.post('/api/scan', (req, res) => {
   try {
