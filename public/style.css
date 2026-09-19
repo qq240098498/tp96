@@ -302,6 +302,68 @@ td.actions {
   font-size: 12.5px;
 }
 
+.threshold-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+label.threshold {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+label.threshold input {
+  width: 64px;
+}
+
+.verdict {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f9fafc;
+  font-size: 12.5px;
+}
+
+.verdict.pass {
+  border-color: #b7ddc9;
+  background: #eefaf3;
+}
+
+.verdict.fail {
+  border-color: #f0c2c2;
+  background: #fdeeee;
+}
+
+.verdict-conclusion {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.verdict.pass .verdict-conclusion {
+  color: var(--ok);
+}
+
+.verdict.fail .verdict-conclusion {
+  color: var(--danger);
+}
+
+.verdict-line {
+  margin-top: 4px;
+}
+
+.verdict-line.muted {
+  color: var(--ink-soft);
+}
+
+.verdict-line.bad {
+  color: var(--danger);
+}
+
 .summary {
   margin: 0 0 12px;
   padding: 10px 12px;

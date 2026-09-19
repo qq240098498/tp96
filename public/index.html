@@ -133,11 +133,23 @@
           <select id="scan-rule"><option value="">全部规则</option></select>
           <select id="scan-file"><option value="">全部文件</option></select>
           <select id="scan-level"><option value="">全部级别</option></select>
+          <span class="threshold-group">
+            <label class="threshold" data-field="threshold-提示">提示上限
+              <input class="threshold-input" data-level="提示" placeholder="不限" maxlength="10">
+            </label>
+            <label class="threshold" data-field="threshold-警告">警告上限
+              <input class="threshold-input" data-level="警告" placeholder="不限" maxlength="10">
+            </label>
+            <label class="threshold" data-field="threshold-错误">错误上限
+              <input class="threshold-input" data-level="错误" placeholder="不限" maxlength="10">
+            </label>
+          </span>
           <button type="button" id="scan-run">按规则扫一遍</button>
         </div>
       </div>
       <p class="scan-meta" id="scan-meta">还没有扫过，点右上角扫一遍</p>
       <p class="scan-warning hidden" id="scan-warning"></p>
+      <div class="verdict hidden" id="scan-verdict"></div>
       <div class="summary hidden" id="scan-summary"></div>
       <div class="table-wrap">
         <table class="grid">

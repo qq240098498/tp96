@@ -93,7 +93,8 @@ app.delete('/api/files/:id', (req, res) => {
   }
 });
 
-// 扫一遍：可以只扫某一条规则、某一个文件，也可以只留某个级别
+// 扫一遍：可以只扫某一条规则、某一个文件，也可以只留某个级别；
+// thresholds 里是各级别的放行上限，留空的级别按不限处理
 app.post('/api/scan', (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -101,6 +102,7 @@ app.post('/api/scan', (req, res) => {
       level: body.level,
       fileId: body.fileId,
       ruleId: body.ruleId,
+      thresholds: body.thresholds,
     }));
   } catch (err) {
     sendError(res, err);

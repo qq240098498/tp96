@@ -89,6 +89,7 @@ function levelClass(level) {
 }
 
 const OPERATOR_KEY = 'check-hits-operator';
+const THRESHOLD_KEY = 'check-hits-thresholds';
 
 function currentOperator() {
   return el('operator').value.trim();
@@ -96,6 +97,31 @@ function currentOperator() {
 
 function restoreOperator() {
   el('operator').value = window.localStorage.getItem(OPERATOR_KEY) || '';
+}
+
+// 各级别的放行上限：按输入框上的 data-level 逐个读出原文，校验交给服务端当场把关
+function readThresholds() {
+  const thresholds = {};
+  document.querySelectorAll('.threshold-input').forEach((input) => {
+    thresholds[input.dataset.level] = input.value;
+  });
+  return thresholds;
+}
+
+function saveThresholds() {
+  window.localStorage.setItem(THRESHOLD_KEY, JSON.stringify(readThresholds()));
+}
+
+function restoreThresholds() {
+  let saved = {};
+  try {
+    saved = JSON.parse(window.localStorage.getItem(THRESHOLD_KEY) || '{}');
+  } catch (err) {
+    saved = {};
+  }
+  document.querySelectorAll('.threshold-input').forEach((input) => {
+    input.value = typeof saved[input.dataset.level] === 'string' ? saved[input.dataset.level] : '';
+  });
 }
 
 async function loadHealth() {
@@ -350,13 +376,15 @@ async function submitFile(event) {
   }
 }
 
-// 扫一遍，把概要与命中清单都画出来
+// 扫一遍，把结论、概要与命中清单都画出来
 async function runScan() {
   clearNotice();
+  clearFieldMarks();
   const body = {
     ruleId: el('scan-rule').value,
     fileId: el('scan-file').value,
     level: el('scan-level').value,
+    thresholds: readThresholds(),
   };
   try {
     const result = await request('/api/scan', { method: 'POST', body: JSON.stringify(body) });
@@ -364,11 +392,37 @@ async function runScan() {
     renderScan(result);
   } catch (err) {
     notify(err.message, 'error');
+    markField(err.field);
   }
+}
+
+// 放行结论：通过还是不通过放在最上面，每个级别一行写清上限、实际条数与差距；
+// 没配上限的级别按不限处理，写明这一级不参与判断，不当成零
+function renderVerdict(verdict) {
+  const box = el('scan-verdict');
+  if (!verdict || !Array.isArray(verdict.levels)) {
+    box.className = 'verdict hidden';
+    box.innerHTML = '';
+    return;
+  }
+  const lines = verdict.levels.map((item) => {
+    const level = escapeHtml(item.level);
+    if (!item.participates) {
+      return `<div class="verdict-line muted">${level}：未配上限，按不限处理，这一级不参与判断（本轮实际 ${item.count} 条）</div>`;
+    }
+    if (item.exceeded) {
+      return `<div class="verdict-line bad">${level}：上限 ${item.limit} 条，实际 ${item.count} 条，超出 ${item.over} 条，还差 ${item.over} 条才不超</div>`;
+    }
+    return `<div class="verdict-line ok">${level}：上限 ${item.limit} 条，实际 ${item.count} 条，未超</div>`;
+  }).join('');
+  box.className = `verdict ${verdict.pass ? 'pass' : 'fail'}`;
+  box.innerHTML = `<div class="verdict-conclusion">结论：${verdict.pass ? '通过' : '不通过'}</div>${lines}`;
 }
 
 function renderScan(result) {
   el('scan-meta').textContent = `扫描时刻 ${formatTime(result.scannedAt)}　参与比对的规则 ${result.rulesUsed} 条（启用共 ${result.enabledRules} 条）　范围里的文件 ${result.filesInScope} 个（清单共 ${result.filesTotal} 个）`;
+
+  renderVerdict(result.verdict);
 
   const warningBox = el('scan-warning');
   if (result.warning) {
@@ -514,9 +568,13 @@ el('rule-filter-status').addEventListener('change', () => {
 el('operator').addEventListener('change', () => {
   window.localStorage.setItem(OPERATOR_KEY, currentOperator());
 });
+document.querySelectorAll('.threshold-input').forEach((input) => {
+  input.addEventListener('change', saveThresholds);
+});
 
 // 页面打开时先把规则与文件都拉一遍，扫描的范围下拉依赖这两份清单
 restoreOperator();
+restoreThresholds();
 loadHealth();
 loadRules()
   .then(loadFiles)
